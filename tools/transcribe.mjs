@@ -15,14 +15,19 @@ import { parseArgs } from 'node:util';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { values: opts, positionals: [video] } = parseArgs({
   allowPositionals: true,
-  options: { local: { type: 'boolean' }, model: { type: 'string', default: 'large-v3' } },
+  options: {
+    local: { type: 'boolean' },
+    model: { type: 'string', default: 'large-v3' },
+    language: { type: 'string' },
+  },
 });
 const { local, model } = opts;
 if (!video || !existsSync(video)) {
-  console.error('Usage: node tools/transcribe.mjs <video> [--local] [--model large-v3]');
+  console.error('Usage: node tools/transcribe.mjs <video> [--local] [--model large-v3] [--language tl]');
   process.exit(1);
 }
 try { process.loadEnvFile(join(root, '.env')); } catch {}
+const language = opts.language || process.env.GROQ_LANGUAGE || 'tl';
 
 const run = (cmd, cmdArgs) => {
   const r = spawnSync(cmd, cmdArgs, { encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true });
@@ -36,7 +41,7 @@ const duration = Number(run('ffprobe', ['-v', 'error', '-show_entries', 'format=
 
 let words;
 if (local) {
-  const json = run('python', [join(root, 'tools', 'transcribe_local.py'), resolve(video), model]);
+  const json = run('python', [join(root, 'tools', 'transcribe_local.py'), resolve(video), model, language]);
   words = JSON.parse(json);
 } else {
   if (!process.env.GROQ_API_KEY) {
@@ -52,6 +57,7 @@ if (local) {
   form.append('model', 'whisper-large-v3');
   form.append('response_format', 'verbose_json');
   form.append('timestamp_granularities[]', 'word');
+  if (language && language !== 'auto') form.append('language', language);
   const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` },

@@ -8,11 +8,12 @@ import sys
 from faster_whisper import WhisperModel
 
 video, model_name = sys.argv[1], sys.argv[2]
+lang = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] != "auto" else None
 
 
 def transcribe(device, compute_type):
     model = WhisperModel(model_name, device=device, compute_type=compute_type)
-    segments, _ = model.transcribe(video, word_timestamps=True, vad_filter=True)
+    segments, _ = model.transcribe(video, word_timestamps=True, vad_filter=True, language=lang)
     return [
         {"text": w.word.strip(), "start": round(w.start, 3), "end": round(w.end, 3)}
         for s in segments
